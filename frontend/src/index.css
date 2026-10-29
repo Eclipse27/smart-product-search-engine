@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   Custom base styles
+   ============================================================ */
+@layer base {
+  body {
+    @apply font-sans text-slate-800 antialiased;
+    background-color: #f8fafc;
+  }
+  * {
+    @apply box-border;
+  }
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* ============================================================
+   Custom component styles
+   ============================================================ */
+@layer components {
+  /* Gradient text effect */
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-600 to-violet-600;
+  }
+
+  /* Glass card effect */
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-sm border border-white/20 shadow-lg;
+  }
+
+  /* Product card hover animation */
+  .product-card {
+    @apply bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden
+           transition-all duration-300 ease-out;
+  }
+  .product-card:hover {
+    @apply shadow-xl -translate-y-1 border-brand-100;
+  }
+
+  /* Badge styles */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge-success {
+    @apply bg-emerald-50 text-emerald-700 border border-emerald-200;
+  }
+  .badge-warning {
+    @apply bg-amber-50 text-amber-700 border border-amber-200;
+  }
+  .badge-danger {
+    @apply bg-rose-50 text-rose-700 border border-rose-200;
+  }
+  .badge-info {
+    @apply bg-brand-50 text-brand-700 border border-brand-200;
+  }
+
+  /* Button styles */
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-6 py-2.5 rounded-xl
+           bg-gradient-to-r from-brand-600 to-brand-700
+           text-white font-semibold text-sm
+           shadow-md shadow-brand-500/25
+           hover:from-brand-700 hover:to-brand-800
+           hover:shadow-lg hover:shadow-brand-500/30
+           active:scale-[0.98]
+           transition-all duration-200;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center px-6 py-2.5 rounded-xl
+           bg-white text-slate-700 font-semibold text-sm
+           border border-slate-200
+           hover:bg-slate-50 hover:border-slate-300
+           active:scale-[0.98]
+           transition-all duration-200;
+  }
+
+  /* Input styles */
+  .input-field {
+    @apply w-full px-4 py-2.5 rounded-xl border border-slate-200
+           bg-white text-slate-800 placeholder:text-slate-400
+           focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400
+           transition-all duration-200;
+  }
+
+  /* Skeleton loader */
+  .skeleton {
+    @apply bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200
+           animate-pulse rounded-lg;
+    background-size: 200% 100%;
+  }
+}
+
+/* ============================================================
+   Custom scrollbar
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-400;
+}
+
+/* ============================================================
+   Search suggestions dropdown animation
+   ============================================================ */
+.search-suggestions-enter {
+  animation: slideDown 0.2s ease-out forwards;
+}
