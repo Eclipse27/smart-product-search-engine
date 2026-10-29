@@ -53,6 +53,13 @@ router.get('/', async (req, res, next) => {
       pool.query(dataSql, dataParams),
     ]);
 
+    // Parse JSON attributes
+    products.forEach(p => {
+      if (p.attributes && typeof p.attributes === 'string') {
+        try { p.attributes = JSON.parse(p.attributes); } catch (e) {}
+      }
+    });
+
     res.json({
       products,
       totalCount: countResult[0].total,
@@ -87,12 +94,18 @@ router.get('/category/:categorySlug', async (req, res, next) => {
       [categorySlug, filters, minPrice, maxPrice, sortBy, page, perPage]
     );
 
-    // The stored procedure returns 3 result sets:
-    // results[0] = (empty from count INTO)
-    // results[1] = products array
-    // results[2] = [{total_count: N}]
-    const products = results[1] || [];
-    const totalCount = results[2]?.[0]?.total_count || 0;
+    // The stored procedure returns:
+    // results[0] = products array
+    // results[1] = [{total_count: N}]
+    const products = results[0] || [];
+    const totalCount = results[1]?.[0]?.total_count || 0;
+
+    // Parse JSON attributes if string
+    products.forEach(p => {
+      if (p.attributes && typeof p.attributes === 'string') {
+        try { p.attributes = JSON.parse(p.attributes); } catch (e) {}
+      }
+    });
 
     res.json({
       products,
