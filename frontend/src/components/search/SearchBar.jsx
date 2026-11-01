@@ -1,151 +1,184 @@
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Search, X, TrendingUp } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Search, X, Sparkles, ArrowRight, Clock } from 'lucide-react';
 import { searchApi } from '../../api';
 
-export default function SearchBar() {
+export default function SearchBar({ className = '' }) {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [isOpen, setIsOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const wrapperRef = useRef(null);
-  const debounceRef = useRef(null);
 
-  // Close suggestions when clicking outside
+  // Fetch search history on mount
   useEffect(() => {
-    function handleClickOutside(e) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
-        setShowSuggestions(false);
+    async function loadHistory() {
+      try {
+        const res = await searchApi.getHistory();
+        if (res.history) setHistory(res.history);
+      } catch (e) {}
+    }
+    loadHistory();
+  }, []);
+
+  // Debounced Autocomplete (250ms)
+  useEffect(() => {
+    if (!query.trim()) {
+      setSuggestions([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        setLoading(true);
+        const res = await searchApi.getSuggestions(query.trim());
+        setSuggestions(res.suggestions || []);
+      } catch (err) {
+        console.error('Autocomplete error:', err);
+      } finally {
+        setLoading(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Click outside to close
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Debounced autocomplete — calls MySQL stored procedure via API
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    if (query.trim().length === 0) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
-
-    debounceRef.current = setTimeout(async () => {
-      setIsLoading(true);
-      try {
-        const data = await searchApi.getSuggestions(query.trim());
-        setSuggestions(data.suggestions || []);
-        setShowSuggestions(true);
-      } catch {
-        setSuggestions([]);
-      } finally {
-        setIsLoading(false);
-      }
-    }, 250);
-
-    return () => clearTimeout(debounceRef.current);
-  }, [query]);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (query.trim()) {
-      setShowSuggestions(false);
-      navigate(`/search?q=${encodeURIComponent(query.trim())}`);
-    }
+  const handleSearch = (e) => {
+    if (e) e.preventDefault();
+    if (!query.trim()) return;
+    setIsOpen(false);
+    navigate(`/search?q=${encodeURIComponent(query.trim())}`);
   };
 
-  const clearQuery = () => {
-    setQuery('');
-    setSuggestions([]);
-    setShowSuggestions(false);
+  const handleSelectSuggestion = (slug) => {
+    setIsOpen(false);
+    navigate(`/product/${slug}`);
+  };
+
+  const handleSelectHistory = (historyItem) => {
+    setQuery(historyItem);
+    setIsOpen(false);
+    navigate(`/search?q=${encodeURIComponent(historyItem)}`);
   };
 
   return (
-    <div ref={wrapperRef} className="relative w-full max-w-2xl">
-      <form onSubmit={handleSubmit} className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+    <div ref={wrapperRef} className={`relative w-full ${className}`}>
+      <form onSubmit={handleSearch} className="relative flex items-center">
         <input
           type="text"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-          placeholder="Search products, brands, categories..."
-          className="w-full pl-12 pr-12 py-3 rounded-2xl border border-slate-200 bg-white/90
-                     text-slate-800 placeholder:text-slate-400 text-sm
-                     focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-400
-                     shadow-sm hover:shadow transition-all duration-200"
-          id="search-input"
-          autoComplete="off"
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+          placeholder="Try 'samsng moble', 'lapotp', 'wireles earbuds'..."
+          className="w-full bg-[#FFFDF9] text-coffee placeholder-cocoa/50 text-sm pl-11 pr-24 py-2.5 rounded-full border border-peach-200 focus:outline-none focus:border-terracotta focus:ring-2 focus:ring-peach-200 shadow-sm transition"
         />
+
+        <Search className="w-4 h-4 text-cocoa/60 absolute left-4 pointer-events-none" />
+
         {query && (
           <button
             type="button"
-            onClick={clearQuery}
-            className="absolute right-14 top-1/2 -translate-y-1/2 p-1 text-slate-400
-                       hover:text-slate-600 transition-colors"
+            onClick={() => {
+              setQuery('');
+              setSuggestions([]);
+            }}
+            className="absolute right-16 p-1 text-cocoa/50 hover:text-terracotta transition"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
         )}
+
         <button
           type="submit"
-          className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 rounded-xl
-                     bg-brand-600 text-white text-sm font-medium
-                     hover:bg-brand-700 transition-colors"
+          className="absolute right-1.5 bg-terracotta hover:bg-terracotta-600 text-white px-4 py-1.5 rounded-full text-xs font-semibold shadow-sm transition"
         >
           Search
         </button>
       </form>
 
-      {/* Autocomplete suggestions dropdown */}
-      {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute top-full mt-2 w-full bg-white rounded-2xl shadow-xl border border-slate-100
-                        z-50 overflow-hidden animate-slide-down">
-          <div className="px-4 py-2 border-b border-slate-100">
-            <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-              {isLoading ? 'Searching...' : 'Suggestions'}
-            </span>
-          </div>
-          <ul className="py-1 max-h-80 overflow-y-auto">
-            {suggestions.map((item) => (
-              <li key={item.product_id}>
-                <Link
-                  to={`/product/${item.slug}`}
-                  onClick={() => { setShowSuggestions(false); setQuery(''); }}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-brand-50 transition-colors"
+      {/* Autocomplete & History Dropdown */}
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-2 bg-[#FFFDF9] border border-peach-200 rounded-2xl shadow-xl overflow-hidden z-50 animate-scale-in">
+          {/* Recent Searches */}
+          {!query && history.length > 0 && (
+            <div className="p-4 border-b border-peach-100">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-cocoa/60 mb-2 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-terracotta" /> Recent Searches
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {history.map((item, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSelectHistory(item)}
+                    className="text-xs bg-peach-50 hover:bg-peach-100 text-coffee border border-peach-200 px-3 py-1 rounded-full transition"
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Product Suggestions */}
+          {suggestions.length > 0 ? (
+            <div className="py-2 divide-y divide-peach-100/50">
+              <div className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-cocoa/60 flex items-center justify-between">
+                <span>Matching Products</span>
+                <span className="text-terracotta lowercase font-normal">MySQL Boolean Mode</span>
+              </div>
+              {suggestions.map((item) => (
+                <div
+                  key={item.product_id}
+                  onClick={() => handleSelectSuggestion(item.slug)}
+                  className="px-4 py-2.5 hover:bg-peach-50 cursor-pointer flex items-center justify-between gap-3 transition"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0">
+                  <div className="flex items-center gap-3 min-w-0">
                     <img
                       src={item.image_url}
-                      alt=""
-                      className="w-full h-full object-cover"
-                      onError={(e) => { e.target.style.display = 'none'; }}
+                      alt={item.name}
+                      className="w-10 h-10 object-cover rounded-lg border border-peach-200 bg-white flex-shrink-0"
                     />
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-coffee truncate">{item.name}</p>
+                      <p className="text-[10px] text-terracotta font-semibold">{item.category_name}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate">{item.name}</p>
-                    <p className="text-xs text-slate-400">{item.category_name}</p>
-                  </div>
-                  <span className="text-sm font-semibold text-brand-600">
+                  <span className="text-xs font-bold text-coffee flex-shrink-0">
                     ${parseFloat(item.price).toFixed(2)}
                   </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <div className="px-4 py-2 border-t border-slate-100">
-            <button
-              onClick={handleSubmit}
-              className="flex items-center gap-2 text-sm text-brand-600 hover:text-brand-700
-                         font-medium transition-colors w-full"
-            >
-              <TrendingUp className="w-4 h-4" />
-              View all results for "{query}"
-            </button>
-          </div>
+                </div>
+              ))}
+
+              <div
+                onClick={handleSearch}
+                className="px-4 py-3 bg-[#FFF8F0] hover:bg-peach-100 cursor-pointer text-xs font-semibold text-terracotta flex items-center justify-center gap-1.5 transition"
+              >
+                <span>View all search results for "{query}"</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </div>
+            </div>
+          ) : query && !loading ? (
+            <div className="p-4 text-center text-xs text-cocoa/70">
+              <p>Press <span className="font-semibold text-coffee">Enter</span> to run typo-tolerant search for <span className="text-terracotta font-semibold">"{query}"</span></p>
+            </div>
+          ) : null}
         </div>
       )}
     </div>

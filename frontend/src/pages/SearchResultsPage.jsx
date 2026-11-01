@@ -4,11 +4,12 @@ import { searchApi } from '../api';
 import ProductGrid from '../components/products/ProductGrid';
 import Pagination from '../components/ui/Pagination';
 import Loader from '../components/ui/Loader';
-import { Search, ArrowUpDown, Database, Zap, Info } from 'lucide-react';
+import SearchBar from '../components/search/SearchBar';
+import { Search, ArrowUpDown, Database, Zap, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function SearchResultsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const query = searchParams.get('q') || '';
+  const rawQuery = searchParams.get('q') || '';
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,10 +18,12 @@ export default function SearchResultsPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [sortBy, setSortBy] = useState('');
   const [searchMethod, setSearchMethod] = useState('');
+  const [normalizedQuery, setNormalizedQuery] = useState('');
+  const [isCorrected, setIsCorrected] = useState(false);
 
   useEffect(() => {
-    async function search() {
-      if (!query.trim()) {
+    async function executeSearch() {
+      if (!rawQuery.trim()) {
         setProducts([]);
         setTotalCount(0);
         setLoading(false);
@@ -29,129 +32,141 @@ export default function SearchResultsPage() {
 
       setLoading(true);
       try {
-        // Calls search_products STORED PROCEDURE via API
-        // This procedure uses MATCH() AGAINST() for FULLTEXT search
-        const params = { q: query, page, per_page: 12 };
+        const params = { q: rawQuery, page, per_page: 12 };
         if (sortBy) params.sort_by = sortBy;
 
         const data = await searchApi.search(params);
         setProducts(data.products || []);
         setTotalPages(data.totalPages || 1);
         setTotalCount(data.totalCount || 0);
-        setSearchMethod(data.searchMethod || '');
+        setSearchMethod(data.searchMethod || 'fulltext');
+        setNormalizedQuery(data.query || rawQuery);
+        setIsCorrected(Boolean(data.isCorrected));
       } catch (err) {
         console.error('Search failed:', err);
       } finally {
         setLoading(false);
       }
     }
-    search();
-  }, [query, page, sortBy]);
 
-  // Reset page when query changes
+    executeSearch();
+  }, [rawQuery, page, sortBy]);
+
   useEffect(() => {
     setPage(1);
     setSortBy('');
-  }, [query]);
+  }, [rawQuery]);
 
-  const handleSortChange = (e) => {
-    setSortBy(e.target.value);
-    setPage(1);
+  const methodBadgeText = () => {
+    switch (searchMethod) {
+      case 'fulltext_exact':
+        return 'MySQL FULLTEXT MATCH() AGAINST() [Exact Natural Language]';
+      case 'fulltext_normalized':
+        return 'Typo Auto-Corrected + MySQL FULLTEXT MATCH() AGAINST()';
+      case 'phonetic_soundex':
+        return 'Phonetic Soundex Match + Relevance Boost';
+      case 'fuzzy_levenshtein':
+        return 'MySQL fn_levenshtein() Stored Function Edit Distance Match';
+      case 'like_fallback':
+        return 'Pattern Match & Token Substring Fallback';
+      default:
+        return 'Advanced MySQL Search Intelligence Layer';
+    }
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
-      {/* Search Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-brand-100 flex items-center justify-center">
-            <Search className="w-5 h-5 text-brand-600" />
-          </div>
+    <div className="space-y-8 pb-16 animate-fade-in">
+      {/* Top Search Bar */}
+      <div className="max-w-2xl mx-auto">
+        <SearchBar initialQuery={rawQuery} />
+      </div>
+
+      {/* Header Results */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[#EAD5C5] pb-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">
-              Search Results for "<span className="gradient-text">{query}</span>"
+            <span className="text-xs font-semibold uppercase tracking-widest text-[#C77B61]">
+              Search Discovery (Module 1)
+            </span>
+            <h1 className="font-serif text-3xl font-normal text-[#49352D] mt-1">
+              Results for &ldquo;{rawQuery}&rdquo;
             </h1>
-            <p className="text-sm text-slate-500">
-              {totalCount} product{totalCount !== 1 ? 's' : ''} found
+            <p className="text-xs text-[#765344] mt-1">
+              Discovered <strong className="text-[#49352D]">{totalCount}</strong> relevant items
             </p>
           </div>
+
+          {/* Sort */}
+          {products.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[#765344] flex items-center gap-1">
+                <ArrowUpDown className="w-3.5 h-3.5 text-[#C77B61]" /> Sort:
+              </span>
+              <select
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setPage(1);
+                }}
+                className="px-3 py-1.5 rounded-xl border border-[#EAD5C5] bg-[#FFFCF7] text-xs text-[#49352D] focus:outline-none focus:ring-1 focus:ring-[#C77B61] cursor-pointer"
+              >
+                <option value="">Relevance Score (SQL MATCH)</option>
+                <option value="price_asc">Price: Low to High</option>
+                <option value="price_desc">Price: High to Low</option>
+                <option value="rating">Highest Rated</option>
+                <option value="newest">Newest First</option>
+              </select>
+            </div>
+          )}
         </div>
 
-        {/* Search Method Indicator */}
-        {searchMethod && (
-          <div className={`mt-4 flex items-start gap-3 p-4 rounded-xl border ${
-            searchMethod === 'fulltext'
-              ? 'bg-emerald-50 border-emerald-200'
-              : 'bg-amber-50 border-amber-200'
-          }`}>
-            <div className="flex-shrink-0 mt-0.5">
-              {searchMethod === 'fulltext' ? (
-                <Database className="w-5 h-5 text-emerald-600" />
-              ) : (
-                <Info className="w-5 h-5 text-amber-600" />
-              )}
-            </div>
-            <div>
-              <p className={`text-sm font-semibold ${
-                searchMethod === 'fulltext' ? 'text-emerald-800' : 'text-amber-800'
-              }`}>
-                {searchMethod === 'fulltext'
-                  ? 'MySQL FULLTEXT Search — MATCH() AGAINST() in Natural Language Mode'
-                  : 'LIKE Partial Match Fallback — Used for short queries or when FULLTEXT returns no results'
-                }
+        {/* Typo Correction Banner */}
+        {isCorrected && (
+          <div className="p-4 rounded-2xl bg-[#FCE9DE] border border-[#FAD8C8] flex items-start gap-3 shadow-xs">
+            <Zap className="w-5 h-5 text-[#C77B61] flex-shrink-0 mt-0.5" />
+            <div className="text-xs text-[#765344] space-y-1">
+              <p className="font-semibold text-[#49352D] text-sm">
+                Showing results for{' '}
+                <span className="text-[#C77B61] font-bold">&ldquo;{normalizedQuery}&rdquo;</span>
               </p>
-              <p className={`text-xs mt-1 ${
-                searchMethod === 'fulltext' ? 'text-emerald-600' : 'text-amber-600'
-              }`}>
-                {searchMethod === 'fulltext'
-                  ? 'Results are ranked by MySQL relevance score. Higher scores indicate stronger matches in product name and description.'
-                  : 'Results are ranked by name-match proximity. FULLTEXT requires minimum 3 characters and yields no results for this query.'
-                }
+              <p>
+                Spelling correction applied. Search query <span className="line-through">&ldquo;{rawQuery}&rdquo;</span> was automatically matched using SQL typo tolerance and phonetic analysis.
               </p>
             </div>
           </div>
         )}
+
+        {/* SQL Intelligence Method Banner */}
+        <div className="p-3.5 rounded-xl bg-[#FFFCF7] border border-[#EAD5C5] flex items-center justify-between gap-4 text-xs">
+          <div className="flex items-center gap-2 text-[#765344]">
+            <Database className="w-4 h-4 text-[#C77B61] flex-shrink-0" />
+            <span>
+              <strong>Execution Engine:</strong> {methodBadgeText()}
+            </span>
+          </div>
+          <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full bg-[#FCE9DE] text-[#C77B61] font-mono font-semibold text-[11px]">
+            CALL search_products()
+          </span>
+        </div>
       </div>
 
-      {/* Sort Controls */}
-      {totalCount > 0 && (
-        <div className="flex items-center gap-3 mb-6 p-4 bg-white rounded-2xl shadow-sm border border-slate-100">
-          <ArrowUpDown className="w-4 h-4 text-slate-400" />
-          <select
-            value={sortBy}
-            onChange={handleSortChange}
-            className="px-3 py-2 rounded-lg border border-slate-200 text-sm text-slate-700
-                       focus:outline-none focus:ring-2 focus:ring-brand-500/20 bg-white"
-          >
-            <option value="">Relevance (Default)</option>
-            <option value="price_asc">Price: Low to High</option>
-            <option value="price_desc">Price: High to Low</option>
-            <option value="rating">Highest Rated</option>
-            <option value="newest">Newest First</option>
-            <option value="popularity">Most Popular</option>
-          </select>
+      {/* Grid */}
+      <ProductGrid
+        products={products}
+        loading={loading}
+        emptyMessage={`No products found for "${rawQuery}". Try checking for spelling or searching for broader terms like "phone", "coffee", "wireless", "shoes".`}
+      />
 
-          {/* Relevance score legend */}
-          {searchMethod === 'fulltext' && (
-            <div className="flex items-center gap-1 ml-auto text-xs text-slate-400">
-              <Zap className="w-3 h-3 text-brand-500" />
-              Relevance scores shown on cards
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Results */}
-      {loading ? (
-        <Loader text={`Searching for "${query}"...`} />
-      ) : (
-        <>
-          <ProductGrid
-            products={products}
-            emptyMessage={`No products found for "${query}". Try different keywords or check your spelling.`}
-          />
-          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
-        </>
+      {/* Pagination */}
+      {!loading && totalPages > 1 && (
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={(p) => {
+            setPage(p);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
       )}
     </div>
   );

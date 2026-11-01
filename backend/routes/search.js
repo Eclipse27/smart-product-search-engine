@@ -1,31 +1,32 @@
 // ============================================================
 // Search Routes — /api/search
 // ============================================================
-// The search API is the primary showcase of MySQL FULLTEXT search.
-// It calls stored procedures that use MATCH() AGAINST() for
-// relevance-based ranking, with LIKE fallback for short queries.
+// Primary showcase of Module 1: Smart Product Search
+// Uses FULLTEXT MATCH() AGAINST(), typo-tolerant Soundex/Levenshtein
+// fallback, relevance scoring, and query logging.
 // ============================================================
 
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
+const { optionalAuth } = require('../middleware/auth');
 
 // ============================================================
 // GET /api/search?q=...
-// Smart product search using MySQL FULLTEXT Search
-// Calls the search_products STORED PROCEDURE
+// Multi-Stage Typo-Tolerant Product Search
 // ============================================================
-router.get('/', async (req, res, next) => {
+router.get('/', optionalAuth, async (req, res, next) => {
   try {
-    const query = (req.query.q || '').trim();
+    const rawQuery = (req.query.q || '').trim();
     const categoryId = req.query.category_id ? parseInt(req.query.category_id) : null;
     const minPrice = req.query.min_price ? parseFloat(req.query.min_price) : null;
     const maxPrice = req.query.max_price ? parseFloat(req.query.max_price) : null;
-    const sortBy = req.query.sort_by || null; // null = relevance (default in procedure)
+    const sortBy = req.query.sort_by || null;
     const page = parseInt(req.query.page) || 1;
     const perPage = Math.min(parseInt(req.query.per_page) || 20, 50);
+    const customerId = req.customer ? req.customer.customerId : null;
 
-    if (!query) {
+    if (!rawQuery) {
       return res.json({
         products: [],
         totalCount: 0,
@@ -37,26 +38,18 @@ router.get('/', async (req, res, next) => {
       });
     }
 
-    // Call the MySQL stored procedure
-    // This procedure uses FULLTEXT MATCH() AGAINST() as primary search
-    // and falls back to LIKE for short queries or zero FULLTEXT results
+    // Call search_products stored procedure
     const [results] = await pool.query(
       'CALL search_products(?, ?, ?, ?, ?, ?, ?)',
-      [query, categoryId, minPrice, maxPrice, sortBy, page, perPage]
+      [rawQuery, categoryId, minPrice, maxPrice, sortBy, page, perPage]
     );
 
-    // The stored procedure returns 2 result sets:
-    // results[0] = products array (with relevance_score)
-    // results[1] = [{total_count: N}]
     const products = results[0] || [];
     const totalCount = results[1]?.[0]?.total_count || 0;
+    const matchStage = products[0]?.match_stage || 'fulltext';
 
-    // Determine which search method was used based on relevance scores
-    const hasFulltextScores = products.some(p => p.relevance_score > 0 && p.relevance_score < 100);
-    const searchMethod = query.length >= 3 && hasFulltextScores ? 'fulltext' : 'like_fallback';
-
-    // Log the search query (calls stored procedure)
-    pool.query('CALL log_search_query(?, ?, ?)', [null, query, totalCount]).catch(() => {});
+    // Log the search query in MySQL search_history table
+    pool.query('CALL log_search_query(?, ?, ?)', [customerId, rawQuery, totalCount]).catch(() => {});
 
     // Parse JSON attributes
     products.forEach(p => {
@@ -71,8 +64,9 @@ router.get('/', async (req, res, next) => {
       page,
       perPage,
       totalPages: Math.ceil(totalCount / perPage),
-      query,
-      searchMethod,
+      query: rawQuery,
+      matchStage,
+      isTypoCorrected: matchStage === 'fuzzy_soundex' || matchStage === 'like_fallback',
     });
   } catch (err) {
     next(err);
@@ -82,22 +76,13 @@ router.get('/', async (req, res, next) => {
 
 // ============================================================
 // GET /api/search/suggestions?q=...
-// Search autocomplete suggestions
-// Calls the get_product_suggestions STORED PROCEDURE
-// Uses FULLTEXT Boolean Mode with wildcard for prefix matching
+// Search autocomplete suggestions (FULLTEXT Boolean prefix)
 // ============================================================
 router.get('/suggestions', async (req, res, next) => {
   try {
     const query = (req.query.q || '').trim();
     const limit = Math.min(parseInt(req.query.limit) || 8, 15);
 
-    if (!query) {
-      return res.json({ suggestions: [] });
-    }
-
-    // Call the MySQL stored procedure
-    // This procedure uses MATCH() AGAINST(query* IN BOOLEAN MODE)
-    // for prefix-matching autocomplete
     const [results] = await pool.query(
       'CALL get_product_suggestions(?, ?)',
       [query, limit]
@@ -106,6 +91,40 @@ router.get('/suggestions', async (req, res, next) => {
     const suggestions = results[0] || [];
 
     res.json({ suggestions });
+  } catch (err) {
+    next(err);
+  }
+});
+
+
+// ============================================================
+// GET /api/search/history
+// Returns recent searches for analytics / search bar history
+// ============================================================
+router.get('/history', optionalAuth, async (req, res, next) => {
+  try {
+    const customerId = req.customer ? req.customer.customerId : null;
+    let historySql;
+    let params;
+
+    if (customerId) {
+      historySql = `SELECT DISTINCT search_query, searched_at 
+                    FROM search_history 
+                    WHERE customer_id = ? 
+                    ORDER BY searched_at DESC 
+                    LIMIT 8`;
+      params = [customerId];
+    } else {
+      historySql = `SELECT search_query, COUNT(*) AS frequency 
+                    FROM search_history 
+                    GROUP BY search_query 
+                    ORDER BY frequency DESC, MAX(searched_at) DESC 
+                    LIMIT 8`;
+      params = [];
+    }
+
+    const [rows] = await pool.query(historySql, params);
+    res.json({ history: rows.map(r => r.search_query) });
   } catch (err) {
     next(err);
   }

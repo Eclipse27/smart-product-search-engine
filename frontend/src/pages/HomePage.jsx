@@ -1,185 +1,309 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Database, Zap, Layers, ArrowRight, ChevronRight, Sparkles } from 'lucide-react';
+import {
+  Sparkles,
+  TrendingUp,
+  Award,
+  Layers,
+  ArrowRight,
+  Database,
+  Search,
+  Cpu,
+  ShieldCheck,
+  Zap,
+} from 'lucide-react';
 import { categoriesApi, productsApi } from '../api';
 import ProductCard from '../components/products/ProductCard';
-import Loader from '../components/ui/Loader';
+import ProductGrid from '../components/products/ProductGrid';
 import SearchBar from '../components/search/SearchBar';
+import Loader from '../components/ui/Loader';
 
 export default function HomePage() {
   const [categories, setCategories] = useState([]);
-  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [trendingProducts, setTrendingProducts] = useState([]);
+  const [recommendations, setRecommendations] = useState([]);
+  const [bestSellers, setBestSellers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function load() {
+    async function loadData() {
       try {
-        const [catData, prodData] = await Promise.all([
+        setLoading(true);
+        const [catsRes, trendingRes, recsRes, bestRes] = await Promise.all([
           categoriesApi.getAll(),
-          productsApi.getAll({ per_page: 8, sort_by: 'rating' }),
+          productsApi.getTrending({ limit: 4 }),
+          productsApi.getRecommendations({ limit: 4 }),
+          productsApi.getBestSellers({ limit: 4 }),
         ]);
-        setCategories(catData.categories || []);
-        setFeaturedProducts(prodData.products || []);
+
+        setCategories(catsRes.categories || []);
+        setTrendingProducts(trendingRes.products || []);
+        setRecommendations(recsRes.recommendations || []);
+        setBestSellers(bestRes.products || []);
       } catch (err) {
-        console.error('Failed to load homepage data:', err);
+        console.error('Error loading homepage data:', err);
       } finally {
         setLoading(false);
       }
     }
-    load();
+
+    loadData();
   }, []);
 
-  if (loading) return <Loader text="Loading homepage..." />;
+  if (loading) {
+    return <Loader text="Unveiling curated boutique collection..." />;
+  }
 
   return (
-    <div className="animate-fade-in">
-      {/* ========== HERO SECTION ========== */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-brand-950 via-brand-900 to-violet-900">
-        {/* Decorative elements */}
-        <div className="absolute inset-0">
-          <div className="absolute top-20 left-10 w-72 h-72 bg-brand-500/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-10 right-20 w-96 h-96 bg-violet-500/10 rounded-full blur-3xl" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-brand-600/5 rounded-full blur-3xl" />
-        </div>
+    <div className="space-y-16 pb-20">
+      {/* ================= HERO SECTION ================= */}
+      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#FCE9DE] via-[#FAD8C8] to-[#EAD5C5] border border-[#EAD5C5] p-8 sm:p-14 shadow-sm">
+        {/* Soft background accents */}
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/40 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-96 h-96 rounded-full bg-[#C77B61]/10 blur-3xl pointer-events-none" />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28">
-          <div className="text-center max-w-3xl mx-auto">
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full
-                            bg-white/10 backdrop-blur-sm border border-white/10 mb-6">
-              <Database className="w-4 h-4 text-brand-300" />
-              <span className="text-sm font-medium text-brand-200">
-                Powered by Advanced MySQL Intelligence
-              </span>
-            </div>
-
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-white mb-6 leading-tight">
-              Discover Products with{' '}
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-brand-300 to-violet-300">
-                Smart Search
-              </span>
-            </h1>
-
-            <p className="text-lg text-slate-300 mb-10 max-w-2xl mx-auto leading-relaxed">
-              Experience intelligent product search powered by MySQL FULLTEXT Search,
-              relevance ranking, and dynamic JSON-based filtering — all processed at the database layer.
-            </p>
-
-            {/* Search Bar */}
-            <div className="max-w-xl mx-auto mb-8">
-              <SearchBar />
-            </div>
-
-            <p className="text-sm text-slate-400">
-              Try: <Link to="/search?q=wireless" className="text-brand-300 hover:text-brand-200 font-medium">wireless</Link>
-              {' · '}
-              <Link to="/search?q=samsung" className="text-brand-300 hover:text-brand-200 font-medium">samsung</Link>
-              {' · '}
-              <Link to="/search?q=laptop" className="text-brand-300 hover:text-brand-200 font-medium">laptop</Link>
-              {' · '}
-              <Link to="/search?q=cotton" className="text-brand-300 hover:text-brand-200 font-medium">cotton</Link>
-            </p>
+        <div className="relative max-w-4xl mx-auto text-center space-y-6">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/80 backdrop-blur-sm border border-[#EAD5C5] text-[#765344] text-xs font-semibold uppercase tracking-widest shadow-xs">
+            <Sparkles className="w-3.5 h-3.5 text-[#C77B61]" />
+            <span>Advanced MySQL 8.0 Intelligence Engine</span>
           </div>
-        </div>
-      </section>
 
-      {/* ========== FEATURES SECTION ========== */}
-      <section className="py-16 bg-white border-b border-slate-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              {
-                icon: Search,
-                title: 'FULLTEXT Smart Search',
-                desc: 'MySQL MATCH() AGAINST() with Natural Language Mode provides relevance-scored search results.',
-                color: 'from-brand-500 to-brand-600',
-              },
-              {
-                icon: Layers,
-                title: 'Dynamic JSON Filters',
-                desc: 'Category-specific attributes stored in MySQL JSON columns with dynamic extraction and filtering.',
-                color: 'from-violet-500 to-violet-600',
-              },
-              {
-                icon: Sparkles,
-                title: 'Search Autocomplete',
-                desc: 'Real-time suggestions using FULLTEXT Boolean Mode with wildcard prefix matching.',
-                color: 'from-amber-500 to-orange-500',
-              },
-            ].map((feature, i) => (
-              <div key={i} className="text-center p-6 rounded-2xl hover:bg-slate-50 transition-colors">
-                <div className={`w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br ${feature.color}
-                                flex items-center justify-center shadow-lg mb-4`}>
-                  <feature.icon className="w-7 h-7 text-white" />
-                </div>
-                <h3 className="text-base font-bold text-slate-800 mb-2">{feature.title}</h3>
-                <p className="text-sm text-slate-500 leading-relaxed">{feature.desc}</p>
-              </div>
-            ))}
+          <h1 className="font-serif text-4xl sm:text-6xl text-[#49352D] font-normal tracking-tight leading-tight">
+            Elevated Shopping, Powered by{' '}
+            <span className="font-cursive text-5xl sm:text-7xl text-[#C77B61] block sm:inline font-bold">
+              Intelligent SQL
+            </span>
+          </h1>
+
+          <p className="text-base sm:text-lg text-[#765344] max-w-2xl mx-auto font-light leading-relaxed">
+            Experience lightning-fast product discovery with typo-tolerant FULLTEXT scoring,
+            dynamic JSON attribute filtering, and collaborative recommendation queries computed directly inside the database.
+          </p>
+
+          {/* Hero Search Bar */}
+          <div className="max-w-2xl mx-auto pt-2">
+            <SearchBar />
+          </div>
+
+          {/* Quick Typo Test Pills */}
+          <div className="pt-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#765344] block mb-2">
+              Try Typo-Tolerant Search Demo:
+            </span>
+            <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
+              {[
+                { label: 'blu tooth headfones', target: 'blu tooth headfones' },
+                { label: 'nik shooes', target: 'nik shooes' },
+                { label: 'samsng moble', target: 'samsng moble' },
+                { label: 'lapotp', target: 'lapotp' },
+                { label: 'wireles earbuds', target: 'wireles earbuds' },
+              ].map((item) => (
+                <Link
+                  key={item.target}
+                  to={`/search?q=${encodeURIComponent(item.target)}`}
+                  className="px-3 py-1.5 rounded-full bg-[#FFFCF7] border border-[#EAD5C5] text-[#765344] hover:bg-[#C77B61] hover:text-white hover:border-[#C77B61] transition-all shadow-xs"
+                >
+                  &ldquo;{item.label}&rdquo;
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ========== CATEGORIES SECTION ========== */}
-      <section className="py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900">Browse Categories</h2>
-              <p className="text-sm text-slate-500 mt-1">Explore products with dynamic JSON-based filters</p>
+      {/* ================= ARCHITECTURAL INTELLIGENCE TICKER ================= */}
+      <section className="bg-[#FFFCF7] border border-[#EAD5C5] rounded-2xl p-6 shadow-sm">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+          <div className="space-y-1 border-r border-[#EAD5C5] last:border-0 pr-4">
+            <div className="inline-flex p-2 rounded-xl bg-[#FCE9DE] text-[#C77B61] mb-1">
+              <Search className="w-5 h-5" />
             </div>
+            <div className="font-serif text-xl font-bold text-[#49352D]">FULLTEXT</div>
+            <p className="text-xs text-[#765344]">MATCH() AGAINST() Natural & Boolean Search</p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {categories.map((cat) => (
-              <Link
-                key={cat.category_id}
-                to={`/category/${cat.slug}`}
-                className="group relative overflow-hidden rounded-2xl aspect-[4/3] bg-slate-900"
-              >
+          <div className="space-y-1 border-r border-[#EAD5C5] last:border-0 pr-4">
+            <div className="inline-flex p-2 rounded-xl bg-[#FCE9DE] text-[#C77B61] mb-1">
+              <Zap className="w-5 h-5" />
+            </div>
+            <div className="font-serif text-xl font-bold text-[#49352D]">Fuzzy + Soundex</div>
+            <p className="text-xs text-[#765344]">Levenshtein edit-distance & phonetic correction</p>
+          </div>
+
+          <div className="space-y-1 border-r border-[#EAD5C5] last:border-0 pr-4">
+            <div className="inline-flex p-2 rounded-xl bg-[#FCE9DE] text-[#C77B61] mb-1">
+              <Layers className="w-5 h-5" />
+            </div>
+            <div className="font-serif text-xl font-bold text-[#49352D]">JSON Schemas</div>
+            <p className="text-xs text-[#765344]">Dynamic category attributes JSON_EXTRACT()</p>
+          </div>
+
+          <div className="space-y-1">
+            <div className="inline-flex p-2 rounded-xl bg-[#FCE9DE] text-[#C77B61] mb-1">
+              <Database className="w-5 h-5" />
+            </div>
+            <div className="font-serif text-xl font-bold text-[#49352D]">Window Functions</div>
+            <p className="text-xs text-[#765344]">RANK() & DENSE_RANK() OVER(PARTITION BY)</p>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= EXPLORE CATEGORIES ================= */}
+      <section className="space-y-6">
+        <div className="flex items-end justify-between border-b border-[#EAD5C5] pb-4">
+          <div>
+            <span className="text-xs font-semibold uppercase tracking-widest text-[#C77B61]">
+              Curated Collections
+            </span>
+            <h2 className="font-serif text-3xl font-normal text-[#49352D] mt-1">
+              Shop by Category
+            </h2>
+          </div>
+          <Link
+            to="/products"
+            className="group inline-flex items-center gap-1.5 text-sm font-semibold text-[#C77B61] hover:text-[#B3684F]"
+          >
+            <span>View All</span>
+            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          {categories.map((cat) => (
+            <Link
+              key={cat.category_id}
+              to={`/category/${cat.slug}`}
+              className="group relative overflow-hidden rounded-2xl bg-[#FFFCF7] border border-[#EAD5C5] p-5 hover:border-[#C77B61] transition-all hover:shadow-md"
+            >
+              <div className="aspect-square w-full rounded-xl overflow-hidden bg-[#FCE9DE]/40 mb-3">
                 <img
-                  src={cat.image_url}
+                  src={cat.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500'}
                   alt={cat.name}
-                  className="absolute inset-0 w-full h-full object-cover opacity-60
-                             group-hover:opacity-40 group-hover:scale-105 transition-all duration-500"
-                  onError={(e) => { e.target.style.opacity = '0.2'; }}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 p-4">
-                  <h3 className="text-white font-bold text-base mb-1">{cat.name}</h3>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-300">{cat.product_count} products</span>
-                    <ChevronRight className="w-3 h-3 text-white/60 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+              </div>
+              <h3 className="font-serif text-base font-bold text-[#49352D] group-hover:text-[#C77B61] transition-colors">
+                {cat.name}
+              </h3>
+              <p className="text-xs text-[#765344] mt-0.5 line-clamp-1">{cat.description}</p>
+            </Link>
+          ))}
         </div>
       </section>
 
-      {/* ========== FEATURED PRODUCTS SECTION ========== */}
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-8">
+      {/* ================= TRENDING NOW (MODULE 4) ================= */}
+      {trendingProducts.length > 0 && (
+        <section className="space-y-6">
+          <div className="flex items-end justify-between border-b border-[#EAD5C5] pb-4">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900">Top Rated Products</h2>
-              <p className="text-sm text-slate-500 mt-1">Highest rated items from our catalog</p>
+              <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-[#C77B61]">
+                <TrendingUp className="w-4 h-4" />
+                <span>Real-Time Pulse (Module 4)</span>
+              </div>
+              <h2 className="font-serif text-3xl font-normal text-[#49352D] mt-1">
+                Trending Right Now
+              </h2>
             </div>
             <Link
-              to="/products"
-              className="flex items-center gap-1 text-sm font-semibold text-brand-600 hover:text-brand-700"
+              to="/ranking?metric=views"
+              className="group inline-flex items-center gap-1.5 text-sm font-semibold text-[#C77B61] hover:text-[#B3684F]"
             >
-              View All <ArrowRight className="w-4 h-4" />
+              <span>Explore Analytics</span>
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {featuredProducts.map((product) => (
-              <ProductCard key={product.product_id} product={product} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {trendingProducts.map((p) => (
+              <ProductCard key={p.product_id} product={p} />
             ))}
           </div>
+        </section>
+      )}
+
+      {/* ================= CURATED RECOMMENDATIONS (MODULE 3) ================= */}
+      {recommendations.length > 0 && (
+        <section className="space-y-6">
+          <div className="flex items-end justify-between border-b border-[#EAD5C5] pb-4">
+            <div>
+              <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-[#C77B61]">
+                <Sparkles className="w-4 h-4" />
+                <span>Collaborative Intelligence (Module 3)</span>
+              </div>
+              <h2 className="font-serif text-3xl font-normal text-[#49352D] mt-1">
+                Recommended For You
+              </h2>
+            </div>
+            <Link
+              to="/products"
+              className="group inline-flex items-center gap-1.5 text-sm font-semibold text-[#C77B61] hover:text-[#B3684F]"
+            >
+              <span>More Recommendations</span>
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {recommendations.map((p) => (
+              <ProductCard key={p.product_id} product={p} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ================= BEST SELLERS (MODULE 4) ================= */}
+      {bestSellers.length > 0 && (
+        <section className="space-y-6">
+          <div className="flex items-end justify-between border-b border-[#EAD5C5] pb-4">
+            <div>
+              <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-[#C77B61]">
+                <Award className="w-4 h-4" />
+                <span>Proven Favorites (Module 4)</span>
+              </div>
+              <h2 className="font-serif text-3xl font-normal text-[#49352D] mt-1">
+                All-Time Best Sellers
+              </h2>
+            </div>
+            <Link
+              to="/ranking?metric=sales"
+              className="group inline-flex items-center gap-1.5 text-sm font-semibold text-[#C77B61] hover:text-[#B3684F]"
+            >
+              <span>Sales Leaderboard</span>
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {bestSellers.map((p) => (
+              <ProductCard key={p.product_id} product={p} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ================= MODULE 5 SHOWCASE TEASER ================= */}
+      <section className="rounded-3xl bg-[#FFFCF7] border border-[#EAD5C5] p-8 sm:p-12 shadow-sm flex flex-col md:flex-row items-center justify-between gap-8">
+        <div className="space-y-3 max-w-xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FCE9DE] text-[#C77B61] text-xs font-semibold uppercase tracking-widest">
+            <Cpu className="w-3.5 h-3.5" />
+            <span>Module 5: SQL Window Functions</span>
+          </div>
+          <h3 className="font-serif text-2xl sm:text-3xl text-[#49352D] font-bold">
+            Interactive Product Ranking Engine
+          </h3>
+          <p className="text-sm text-[#765344] leading-relaxed">
+            Inspect real-time analytical SQL queries utilizing <code className="px-1.5 py-0.5 rounded bg-[#FCE9DE] text-[#49352D] font-mono text-xs">ROW_NUMBER()</code>,{' '}
+            <code className="px-1.5 py-0.5 rounded bg-[#FCE9DE] text-[#49352D] font-mono text-xs">RANK()</code>, and{' '}
+            <code className="px-1.5 py-0.5 rounded bg-[#FCE9DE] text-[#49352D] font-mono text-xs">DENSE_RANK()</code> partitioned by category.
+          </p>
         </div>
+        <Link
+          to="/ranking"
+          className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-[#C77B61] text-white font-medium text-sm hover:bg-[#B3684F] shadow-sm hover:shadow-md transition-all whitespace-nowrap"
+        >
+          <span>Launch Ranking Dashboard</span>
+          <ArrowRight className="w-4 h-4" />
+        </Link>
       </section>
     </div>
   );

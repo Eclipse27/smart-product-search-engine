@@ -9,6 +9,7 @@
 --   • CASE expressions (stock status, discount calculation)
 --   • Aggregate Functions (COUNT, AVG, MIN, MAX, SUM)
 --   • GROUP BY (category-level statistics)
+--   • Window Functions (ranking within views)
 --   • Subqueries (recent review data)
 -- ============================================================
 
@@ -95,14 +96,14 @@ GROUP BY
 
 -- ============================================================
 -- VIEW 3: vw_product_reviews_summary
--- Product-level review aggregation with review details
+-- Product-level review aggregation with rating distribution
 -- ============================================================
 CREATE OR REPLACE VIEW vw_product_reviews_summary AS
 SELECT
     p.product_id,
     p.name AS product_name,
     COUNT(r.review_id)            AS total_reviews,
-    COALESCE(AVG(r.rating), 0)    AS calculated_avg_rating,
+    COALESCE(ROUND(AVG(r.rating), 2), 0) AS calculated_avg_rating,
     -- Rating distribution using conditional aggregation
     SUM(CASE WHEN r.rating = 5 THEN 1 ELSE 0 END) AS five_star,
     SUM(CASE WHEN r.rating = 4 THEN 1 ELSE 0 END) AS four_star,
@@ -115,9 +116,76 @@ GROUP BY p.product_id, p.name;
 
 
 -- ============================================================
--- Verify views
+-- VIEW 4: vw_trending_dashboard
+-- Combines trending scores with product catalog details
 -- ============================================================
-SELECT TABLE_NAME AS view_name, VIEW_DEFINITION IS NOT NULL AS is_valid
-FROM INFORMATION_SCHEMA.VIEWS
-WHERE TABLE_SCHEMA = 'smart_product_engine'
-ORDER BY TABLE_NAME;
+CREATE OR REPLACE VIEW vw_trending_dashboard AS
+SELECT
+    tp.trending_id,
+    tp.trending_score,
+    tp.period_views,
+    tp.period_orders,
+    tp.period_revenue,
+    tp.calculated_at,
+    p.product_id,
+    p.name,
+    p.slug,
+    p.price,
+    p.original_price,
+    p.avg_rating,
+    p.review_count,
+    p.image_url,
+    p.brand_generated AS brand,
+    c.name AS category_name,
+    c.slug AS category_slug,
+    CASE
+        WHEN p.original_price IS NOT NULL AND p.original_price > p.price
+        THEN ROUND(((p.original_price - p.price) / p.original_price) * 100)
+        ELSE 0
+    END AS discount_percentage
+FROM trending_products tp
+INNER JOIN products p ON tp.product_id = p.product_id
+INNER JOIN categories c ON p.category_id = c.category_id
+WHERE p.is_active = TRUE;
+
+
+-- ============================================================
+-- VIEW 5: vw_best_sellers
+-- Products ranked by order item frequency and revenue
+-- ============================================================
+CREATE OR REPLACE VIEW vw_best_sellers AS
+SELECT
+    p.product_id,
+    p.name,
+    p.slug,
+    p.price,
+    p.image_url,
+    p.brand_generated AS brand,
+    c.name AS category_name,
+    c.slug AS category_slug,
+    COALESCE(SUM(oi.quantity), 0) AS units_sold,
+    COALESCE(SUM(oi.quantity * oi.unit_price), 0.00) AS total_revenue,
+    COUNT(DISTINCT oi.order_id) AS order_appearances,
+    DENSE_RANK() OVER (ORDER BY COALESCE(SUM(oi.quantity), 0) DESC) AS sales_rank
+FROM products p
+INNER JOIN categories c ON p.category_id = c.category_id
+LEFT JOIN order_items oi ON p.product_id = oi.product_id
+WHERE p.is_active = TRUE
+GROUP BY p.product_id, p.name, p.slug, p.price, p.image_url, p.brand_generated, c.name, c.slug;
+
+
+-- ============================================================
+-- VIEW 6: vw_customer_order_summary
+-- Customer purchase metrics for personalization
+-- ============================================================
+CREATE OR REPLACE VIEW vw_customer_order_summary AS
+SELECT
+    cu.customer_id,
+    cu.name AS customer_name,
+    cu.email,
+    COUNT(DISTINCT o.order_id) AS total_orders,
+    COALESCE(SUM(o.total_amount), 0.00) AS lifetime_spend,
+    MAX(o.created_at) AS last_order_date
+FROM customers cu
+LEFT JOIN orders o ON cu.customer_id = o.customer_id
+GROUP BY cu.customer_id, cu.name, cu.email;

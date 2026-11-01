@@ -16,12 +16,13 @@ export default function Pagination({ page, totalPages, onPageChange }) {
   }
 
   return (
-    <div className="flex items-center justify-center gap-2 mt-8">
+    <div className="flex items-center justify-center gap-2 mt-10">
       <button
         onClick={() => onPageChange(page - 1)}
         disabled={page <= 1}
-        className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50
-                   disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        className="p-2 rounded-xl border border-[#EAD5C5] text-[#765344] bg-[#FFFCF7] hover:bg-[#FCE9DE]/40
+                   disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        title="Previous Page"
       >
         <ChevronLeft className="w-4 h-4" />
       </button>
@@ -30,11 +31,11 @@ export default function Pagination({ page, totalPages, onPageChange }) {
         <>
           <button
             onClick={() => onPageChange(1)}
-            className="w-10 h-10 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+            className="w-10 h-10 rounded-xl text-sm font-medium text-[#765344] bg-[#FFFCF7] border border-[#EAD5C5] hover:bg-[#FCE9DE]/40 transition-colors"
           >
             1
           </button>
-          {start > 2 && <span className="text-slate-400 px-1">…</span>}
+          {start > 2 && <span className="text-[#A89080] px-1 font-serif">…</span>}
         </>
       )}
 
@@ -42,10 +43,10 @@ export default function Pagination({ page, totalPages, onPageChange }) {
         <button
           key={p}
           onClick={() => onPageChange(p)}
-          className={`w-10 h-10 rounded-lg text-sm font-medium transition-all duration-200 ${
+          className={`w-10 h-10 rounded-xl text-sm font-medium transition-all duration-200 ${
             p === page
-              ? 'bg-brand-600 text-white shadow-md shadow-brand-500/25'
-              : 'text-slate-600 hover:bg-slate-100'
+              ? 'bg-[#C77B61] text-white shadow-md shadow-[#C77B61]/25 border border-[#C77B61]'
+              : 'bg-[#FFFCF7] border border-[#EAD5C5] text-[#765344] hover:bg-[#FCE9DE]/40'
           }`}
         >
           {p}
@@ -54,10 +55,10 @@ export default function Pagination({ page, totalPages, onPageChange }) {
 
       {end < totalPages && (
         <>
-          {end < totalPages - 1 && <span className="text-slate-400 px-1">…</span>}
+          {end < totalPages - 1 && <span className="text-[#A89080] px-1 font-serif">…</span>}
           <button
             onClick={() => onPageChange(totalPages)}
-            className="w-10 h-10 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+            className="w-10 h-10 rounded-xl text-sm font-medium text-[#765344] bg-[#FFFCF7] border border-[#EAD5C5] hover:bg-[#FCE9DE]/40 transition-colors"
           >
             {totalPages}
           </button>
@@ -67,8 +68,9 @@ export default function Pagination({ page, totalPages, onPageChange }) {
       <button
         onClick={() => onPageChange(page + 1)}
         disabled={page >= totalPages}
-        className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50
-                   disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        className="p-2 rounded-xl border border-[#EAD5C5] text-[#765344] bg-[#FFFCF7] hover:bg-[#FCE9DE]/40
+                   disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        title="Next Page"
       >
         <ChevronRight className="w-4 h-4" />
       </button>

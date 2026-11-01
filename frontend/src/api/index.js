@@ -1,84 +1,191 @@
 // ============================================================
-// API Layer — Communicates with the Express backend
+// API Layer — Communicates with the Express & MySQL Backend
 // ============================================================
 
 const API_BASE = '/api';
 
-async function fetchJSON(url) {
-  const res = await fetch(url);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Network error' }));
-    throw new Error(err.error || `HTTP ${res.status}`);
-  }
-  return res.json();
+function getAuthHeader() {
+  const token = localStorage.getItem('aura_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-async function postJSON(url, body = {}) {
+async function fetchJSON(url, options = {}) {
   const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeader(),
+      ...options.headers,
+    },
   });
+
+  const data = await res.json().catch(() => ({ error: 'Failed to parse response' }));
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Network error' }));
-    throw new Error(err.error || `HTTP ${res.status}`);
+    throw new Error(data.error || `HTTP ${res.status}`);
   }
-  return res.json();
+  return data;
 }
+
+// ============================================================
+// Auth API
+// ============================================================
+export const authApi = {
+  register: (userData) =>
+    fetchJSON(`${API_BASE}/auth/register`, {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    }),
+
+  login: (credentials) =>
+    fetchJSON(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    }),
+
+  getMe: () => fetchJSON(`${API_BASE}/auth/me`),
+};
 
 // ============================================================
 // Products API
 // ============================================================
 export const productsApi = {
-  // GET /api/products — uses vw_product_details VIEW
   getAll: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return fetchJSON(`${API_BASE}/products?${qs}`);
   },
 
-  // GET /api/products/:slug — calls get_product_detail STORED PROCEDURE
-  getBySlug: (slug) => {
-    return fetchJSON(`${API_BASE}/products/${slug}`);
-  },
+  getBySlug: (slug) => fetchJSON(`${API_BASE}/products/${slug}`),
 
-  // GET /api/products/category/:slug — calls get_filtered_products STORED PROCEDURE
   getByCategory: (categorySlug, params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return fetchJSON(`${API_BASE}/products/category/${categorySlug}?${qs}`);
   },
 
-  // POST /api/products/:id/view — calls log_product_view STORED PROCEDURE
-  logView: (productId, customerId = null) => {
-    return postJSON(`${API_BASE}/products/${productId}/view`, { customerId });
+  filter: (filterPayload) =>
+    fetchJSON(`${API_BASE}/products/filter`, {
+      method: 'POST',
+      body: JSON.stringify(filterPayload),
+    }),
+
+  getTrending: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return fetchJSON(`${API_BASE}/products/trending?${qs}`);
   },
+
+  getBestSellers: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return fetchJSON(`${API_BASE}/products/bestsellers?${qs}`);
+  },
+
+  getRanking: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return fetchJSON(`${API_BASE}/products/ranking?${qs}`);
+  },
+
+  getRecommendations: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return fetchJSON(`${API_BASE}/products/recommendations?${qs}`);
+  },
+
+  getRelated: (productId) => fetchJSON(`${API_BASE}/products/${productId}/related`),
+
+  logView: (productId, customerId = null) =>
+    fetchJSON(`${API_BASE}/products/${productId}/view`, {
+      method: 'POST',
+      body: JSON.stringify({ customerId }),
+    }),
+
+  getReviews: (productId) => fetchJSON(`${API_BASE}/products/${productId}/reviews`),
+
+  submitReview: (productId, reviewData) =>
+    fetchJSON(`${API_BASE}/products/${productId}/reviews`, {
+      method: 'POST',
+      body: JSON.stringify(reviewData),
+    }),
 };
 
 // ============================================================
 // Categories API
 // ============================================================
 export const categoriesApi = {
-  // GET /api/categories — uses vw_category_stats VIEW
   getAll: () => fetchJSON(`${API_BASE}/categories`),
-
-  // GET /api/categories/:slug
   getBySlug: (slug) => fetchJSON(`${API_BASE}/categories/${slug}`),
-
-  // GET /api/categories/:slug/filters — calls get_filter_values STORED PROCEDURE
   getFilters: (slug) => fetchJSON(`${API_BASE}/categories/${slug}/filters`),
 };
 
 // ============================================================
-// Search API
+// Search API (Typo-Tolerant, Autocomplete, History)
 // ============================================================
 export const searchApi = {
-  // GET /api/search?q=... — calls search_products STORED PROCEDURE
   search: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return fetchJSON(`${API_BASE}/search?${qs}`);
   },
 
-  // GET /api/search/suggestions?q=... — calls get_product_suggestions STORED PROCEDURE
-  getSuggestions: (query) => {
-    return fetchJSON(`${API_BASE}/search/suggestions?q=${encodeURIComponent(query)}`);
-  },
+  getSuggestions: (query) =>
+    fetchJSON(`${API_BASE}/search/suggestions?q=${encodeURIComponent(query)}`),
+
+  getHistory: () => fetchJSON(`${API_BASE}/search/history`),
+};
+
+// ============================================================
+// Cart API
+// ============================================================
+export const cartApi = {
+  get: () => fetchJSON(`${API_BASE}/cart`),
+
+  add: (productId, quantity = 1) =>
+    fetchJSON(`${API_BASE}/cart`, {
+      method: 'POST',
+      body: JSON.stringify({ productId, quantity }),
+    }),
+
+  update: (productId, quantity) =>
+    fetchJSON(`${API_BASE}/cart/${productId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ quantity }),
+    }),
+
+  remove: (productId) =>
+    fetchJSON(`${API_BASE}/cart/${productId}`, {
+      method: 'DELETE',
+    }),
+
+  clear: () =>
+    fetchJSON(`${API_BASE}/cart`, {
+      method: 'DELETE',
+    }),
+};
+
+// ============================================================
+// Orders API (Transactions)
+// ============================================================
+export const ordersApi = {
+  create: (orderData) =>
+    fetchJSON(`${API_BASE}/orders`, {
+      method: 'POST',
+      body: JSON.stringify(orderData),
+    }),
+
+  getAll: () => fetchJSON(`${API_BASE}/orders`),
+
+  getById: (orderId) => fetchJSON(`${API_BASE}/orders/${orderId}`),
+};
+
+// ============================================================
+// Wishlist API
+// ============================================================
+export const wishlistApi = {
+  get: () => fetchJSON(`${API_BASE}/wishlist`),
+
+  add: (productId) =>
+    fetchJSON(`${API_BASE}/wishlist`, {
+      method: 'POST',
+      body: JSON.stringify({ productId }),
+    }),
+
+  remove: (productId) =>
+    fetchJSON(`${API_BASE}/wishlist/${productId}`, {
+      method: 'DELETE',
+    }),
 };

@@ -1,91 +1,142 @@
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, ShoppingCart, Zap } from 'lucide-react';
-import Rating from '../ui/Rating';
+import { Heart, ShoppingBag, Star, Zap } from 'lucide-react';
+import { useCart } from '../../context/CartContext';
+import { useWishlist } from '../../context/WishlistContext';
 
-export default function ProductCard({ product }) {
-  const {
-    slug, name, price, original_price, image_url, avg_rating,
-    review_count, stock_status, discount_percentage, category_name,
-    brand, relevance_score, view_count,
-  } = product;
+export default function ProductCard({ product, showRelevance = false }) {
+  const { addToCart } = useCart();
+  const { isInWishlist, toggleWishlist } = useWishlist();
 
-  const stockBadge = {
-    in_stock: { label: 'In Stock', class: 'badge-success' },
-    low_stock: { label: 'Few Left', class: 'badge-warning' },
-    out_of_stock: { label: 'Out of Stock', class: 'badge-danger' },
-  };
+  if (!product) return null;
 
-  const badge = stockBadge[stock_status] || stockBadge.in_stock;
+  const isFavorited = isInWishlist(product.product_id);
+  const discount = product.discount_percentage || (
+    product.original_price && product.original_price > product.price
+      ? Math.round(((product.original_price - product.price) / product.original_price) * 100)
+      : 0
+  );
 
   return (
-    <Link to={`/product/${slug}`} className="product-card group block animate-fade-in">
-      {/* Image */}
-      <div className="relative aspect-square bg-slate-50 overflow-hidden">
+    <div className="card-boutique group relative flex flex-col h-full bg-[#FFFFFF] rounded-2xl border border-peach-200/80 overflow-hidden shadow-sm hover:shadow-boutique-hover transition-all duration-300">
+      {/* Badge container */}
+      <div className="absolute top-3 left-3 z-10 flex flex-col gap-1 items-start">
+        {discount > 0 && (
+          <span className="bg-terracotta text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full shadow-sm">
+            -{discount}%
+          </span>
+        )}
+        {showRelevance && product.relevance_score > 0 && (
+          <span className="bg-[#FFF8F0] border border-peach-300 text-terracotta text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1">
+            <Zap className="w-2.5 h-2.5 fill-terracotta" />
+            Score: {parseFloat(product.relevance_score).toFixed(1)}
+          </span>
+        )}
+      </div>
+
+      {/* Wishlist Button */}
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleWishlist(product);
+        }}
+        className={`absolute top-3 right-3 z-10 p-2 rounded-full backdrop-blur-md transition shadow-sm ${
+          isFavorited
+            ? 'bg-peach-100 text-terracotta'
+            : 'bg-white/80 hover:bg-white text-cocoa/60 hover:text-terracotta'
+        }`}
+        title={isFavorited ? 'Remove from wishlist' : 'Save to wishlist'}
+      >
+        <Heart className={`w-4 h-4 ${isFavorited ? 'fill-terracotta' : ''}`} />
+      </button>
+
+      {/* Image with zoom transition */}
+      <Link to={`/product/${product.slug}`} className="block relative aspect-square overflow-hidden bg-cream-100">
         <img
-          src={image_url}
-          alt={name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          src={product.image_url}
+          alt={product.name}
           loading="lazy"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           onError={(e) => {
-            e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&size=400&background=e0e7ff&color=4f46e5&font-size=0.33`;
+            e.target.onerror = null;
+            e.target.src = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=500&fit=crop';
           }}
         />
+      </Link>
 
-        {/* Discount badge */}
-        {discount_percentage > 0 && (
-          <span className="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-rose-500 text-white
-                           text-xs font-bold shadow-lg">
-            -{discount_percentage}%
-          </span>
-        )}
+      {/* Product Information */}
+      <div className="p-4 flex flex-col flex-1 justify-between">
+        <div>
+          {/* Brand & Category */}
+          <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-terracotta font-semibold mb-1">
+            <span>{product.brand || product.brand_generated || 'Boutique'}</span>
+            <span className="text-cocoa/50 font-normal lowercase">{product.category_name}</span>
+          </div>
 
-        {/* Relevance score (shown in search results) */}
-        {relevance_score > 0 && (
-          <span className="absolute top-3 right-3 px-2 py-1 rounded-lg bg-brand-600/90 text-white
-                           text-[10px] font-bold flex items-center gap-1 backdrop-blur-sm">
-            <Zap className="w-3 h-3" />
-            {typeof relevance_score === 'number' && relevance_score < 100
-              ? relevance_score.toFixed(2)
-              : 'Match'}
-          </span>
-        )}
-      </div>
+          {/* Product Name */}
+          <Link
+            to={`/product/${product.slug}`}
+            className="font-heading text-sm font-semibold text-coffee hover:text-terracotta transition line-clamp-2 mb-2"
+            title={product.name}
+          >
+            {product.name}
+          </Link>
 
-      {/* Info */}
-      <div className="p-4">
-        {/* Category */}
-        <p className="text-xs font-medium text-brand-500 mb-1">{category_name}</p>
-
-        {/* Name */}
-        <h3 className="text-sm font-semibold text-slate-800 line-clamp-2 mb-2
-                       group-hover:text-brand-600 transition-colors">
-          {name}
-        </h3>
-
-        {/* Rating */}
-        <Rating rating={parseFloat(avg_rating)} count={review_count} />
-
-        {/* Price */}
-        <div className="mt-3 flex items-baseline gap-2">
-          <span className="text-lg font-bold text-slate-900">
-            ${parseFloat(price).toFixed(2)}
-          </span>
-          {original_price && parseFloat(original_price) > parseFloat(price) && (
-            <span className="text-sm text-slate-400 line-through">
-              ${parseFloat(original_price).toFixed(2)}
+          {/* Rating */}
+          <div className="flex items-center gap-1.5 mb-3">
+            <div className="flex items-center text-amber-500">
+              <Star className="w-3.5 h-3.5 fill-amber-400 stroke-amber-400" />
+              <span className="text-xs font-semibold ml-1 text-coffee">
+                {parseFloat(product.avg_rating || 0).toFixed(1)}
+              </span>
+            </div>
+            <span className="text-[11px] text-cocoa/60">
+              ({product.review_count || 0})
             </span>
-          )}
+          </div>
         </div>
 
-        {/* Bottom row */}
-        <div className="mt-3 flex items-center justify-between">
-          <span className={`badge ${badge.class}`}>{badge.label}</span>
-          <span className="flex items-center gap-1 text-xs text-slate-400">
-            <Eye className="w-3 h-3" />
-            {view_count || 0}
-          </span>
+        {/* Price & Action */}
+        <div className="pt-3 border-t border-peach-100 flex items-center justify-between">
+          <div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-base font-bold text-coffee">
+                ${parseFloat(product.price).toFixed(2)}
+              </span>
+              {product.original_price && parseFloat(product.original_price) > parseFloat(product.price) && (
+                <span className="text-xs text-cocoa/50 line-through">
+                  ${parseFloat(product.original_price).toFixed(2)}
+                </span>
+              )}
+            </div>
+            <span
+              className={`text-[10px] font-semibold ${
+                product.stock_quantity === 0
+                  ? 'text-red-500'
+                  : product.stock_quantity < 5
+                  ? 'text-amber-600'
+                  : 'text-emerald-600'
+              }`}
+            >
+              {product.stock_quantity === 0
+                ? 'Out of stock'
+                : product.stock_quantity < 5
+                ? `Only ${product.stock_quantity} left`
+                : 'In stock'}
+            </span>
+          </div>
+
+          <button
+            onClick={() => addToCart(product, 1)}
+            disabled={product.stock_quantity === 0}
+            className="p-2.5 bg-peach-100 hover:bg-terracotta text-terracotta hover:text-white rounded-xl transition duration-200 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm active:scale-95"
+            title="Add to shopping bag"
+          >
+            <ShoppingBag className="w-4 h-4" />
+          </button>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }

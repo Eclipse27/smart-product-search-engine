@@ -233,6 +233,49 @@ CREATE TABLE trending_products (
 ) ENGINE=InnoDB;
 
 
+-- ============================================================
+-- TABLE 10: cart_items
+-- Persistent cart storage for authenticated customers
+-- ============================================================
+CREATE TABLE IF NOT EXISTS cart_items (
+    cart_item_id  INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id   INT NOT NULL,
+    product_id    INT NOT NULL,
+    quantity      INT NOT NULL DEFAULT 1,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_cart_customer
+        FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_cart_product
+        FOREIGN KEY (product_id) REFERENCES products(product_id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT uq_customer_cart_product UNIQUE (customer_id, product_id),
+    CONSTRAINT chk_cart_quantity_positive CHECK (quantity > 0)
+) ENGINE=InnoDB;
+
+
+-- ============================================================
+-- TABLE 11: wishlist
+-- Wishlist saved products for authenticated customers
+-- ============================================================
+CREATE TABLE IF NOT EXISTS wishlist (
+    wishlist_id   INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id   INT NOT NULL,
+    product_id    INT NOT NULL,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_wishlist_customer
+        FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_wishlist_product
+        FOREIGN KEY (product_id) REFERENCES products(product_id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT uq_customer_product_wishlist UNIQUE (customer_id, product_id)
+) ENGINE=InnoDB;
+
+
 -- Verify all tables created
 SELECT TABLE_NAME, ENGINE, TABLE_ROWS
 FROM INFORMATION_SCHEMA.TABLES
